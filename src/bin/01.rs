@@ -6,7 +6,7 @@ fn fuel_req(mass: u32) -> u32 {
     if intermediate <= 2 {
         0
     } else {
-        return intermediate - 2
+        return intermediate - 2;
     }
 }
 
@@ -24,12 +24,12 @@ fn main() {
     let file = File::open("input/01.txt").expect("unable to open modules file: input/01.txt");
     let reader = BufReader::new(file);
 
-    let mut fuel : u32 = 0;
-    let mut mfuel : u32 = 0;
+    let mut fuel: u32 = 0;
+    let mut mfuel: u32 = 0;
     for line in reader.lines() {
         let line = line.unwrap();
-        let mass : u32 = line.parse().unwrap();
-        let fuel_for_mass = fuel_req(mass); 
+        let mass: u32 = line.parse().unwrap();
+        let fuel_for_mass = fuel_req(mass);
         mfuel += fuel_for_mass;
         let total_fuel = fuel_req_fuel(fuel_for_mass);
         fuel += total_fuel;
