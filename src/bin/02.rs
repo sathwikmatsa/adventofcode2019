@@ -12,7 +12,7 @@ fn intcode_computer(intcode: &mut Vec<i32>) {
         } else if intcode[index] == 2 {
             intcode[third_pos] = intcode[first_pos] * intcode[second_pos];
         } else {
-            eprintln!("Something went wrong!");
+            panic!("Invalid opcode");
         }
 
         index = index + 4;
