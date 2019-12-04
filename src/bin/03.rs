@@ -56,8 +56,7 @@ fn crossover_manhattan_distance(
 
 fn main() {
     // get wire paths
-    let input = read_to_string("input/03.txt")
-        .expect("Unable to read from file: input/03.txt");
+    let input = read_to_string("input/03.txt").expect("Unable to read from file: input/03.txt");
     let mut input = input.lines();
 
     let wire1_path = input.next().unwrap().split(',').collect::<Vec<_>>();
