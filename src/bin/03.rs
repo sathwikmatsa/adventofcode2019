@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs::read_to_string;
 
-fn enumerate_path(path: &Vec<&str>) -> HashMap<(i32, i32), u32> {
+fn enumerate_path(path: &[&str]) -> HashMap<(i32, i32), u32> {
     let mut coords: HashMap<(i32, i32), u32> = HashMap::new();
     let mut i: i32 = 0;
     let mut j: i32 = 0;
@@ -13,13 +13,13 @@ fn enumerate_path(path: &Vec<&str>) -> HashMap<(i32, i32), u32> {
         let direction = long_step.chars().nth(0).unwrap();
         for _ in 0..mini_steps {
             if direction == 'R' {
-                i = i + 1;
+                i += 1;
             } else if direction == 'D' {
-                j = j - 1;
+                j -= 1;
             } else if direction == 'U' {
-                j = j + 1;
+                j += 1;
             } else {
-                i = i - 1;
+                i -= 1;
             }
             length += 1;
             coords.entry((i, j)).or_insert(length);

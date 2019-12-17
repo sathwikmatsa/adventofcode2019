@@ -7,12 +7,12 @@ fn matches_password_criteria(i: u32) -> (bool, bool) {
         let mut digit_iter = num.chars();
         let mut prev_prev = digit_iter.next().unwrap();
         let mut prev = digit_iter.next().unwrap();
-        let mut same_group_count = 1;
-
-        if prev == prev_prev {
+        let mut same_group_count = if prev == prev_prev {
             same_adj_digits = true;
-            same_group_count = 2;
-        }
+            2
+        } else {
+            1
+        };
         never_decrease = prev >= prev_prev;
 
         for d in digit_iter {
@@ -37,16 +37,16 @@ fn matches_password_criteria(i: u32) -> (bool, bool) {
             (same_adj_digits_strict || same_group_count == 2) && never_decrease,
         );
     }
-    return (false, false);
+    (false, false)
 }
 
 fn main() {
-    let start = 193651;
-    let end = 649729;
+    let start = 193_651;
+    let end = 649_729;
     let mut p1_viable_passwords = 0;
     let mut p2_viable_passwords = 0;
 
-    for i in start..end + 1 {
+    for i in start..=end {
         let (c1, c2) = matches_password_criteria(i);
         if c1 {
             p1_viable_passwords += 1;

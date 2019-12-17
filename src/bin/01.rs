@@ -6,16 +6,16 @@ fn fuel_req(mass: u32) -> u32 {
     if intermediate <= 2 {
         0
     } else {
-        return intermediate - 2;
+        intermediate - 2
     }
 }
 
 fn fuel_req_fuel(fuel: u32) -> u32 {
     let fuel_req_by_fuel = fuel_req(fuel);
     if fuel_req_by_fuel == 0 {
-        return fuel;
+        fuel
     } else {
-        return fuel + fuel_req_fuel(fuel_req_by_fuel);
+        fuel + fuel_req_fuel(fuel_req_by_fuel)
     }
 }
 

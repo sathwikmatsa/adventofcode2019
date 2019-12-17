@@ -34,7 +34,8 @@ fn main() {
     let graph = map.into_graph::<u32>().into_edge_type::<Undirected>();
     let mut nodes = HashMap::new();
     for node_ix in graph.node_indices() {
-        nodes.insert(graph.node_weight(node_ix).unwrap().clone(), node_ix);
+        let node: &str = graph.node_weight(node_ix).unwrap();
+        nodes.insert(node, node_ix);
     }
     let path = astar(
         &graph,
