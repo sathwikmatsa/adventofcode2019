@@ -11,8 +11,12 @@ fn main() {
         .collect();
 
     let mut computer = IntcodeComputer::new();
-    println!("Part 1: ");
-    computer.run_program(&intcode, &[1]);
-    println!("Part 2: ");
-    computer.run_program(&intcode, &[5]);
+
+    computer.load_program(&intcode);
+    let output = computer.execute(&[1]);
+    println!("Part 1: {}", output[output.len() - 1]);
+
+    computer.load_program(&intcode);
+    let output = computer.execute(&[5]);
+    println!("Part 2: {}", output[output.len() - 1]);
 }

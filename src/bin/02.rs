@@ -11,7 +11,8 @@ fn find_noun_verb(
             program[1] = i;
             program[2] = j;
 
-            computer.run_program(program, &[]);
+            computer.load_program(program);
+            computer.execute(&[]);
             if computer.memory[0] == output {
                 return (i, j);
             }
@@ -34,7 +35,8 @@ fn main() {
 
     program[1] = 12;
     program[2] = 2;
-    computer.run_program(&program, &[]);
+    computer.load_program(&program);
+    computer.execute(&[]);
     let part1 = computer.memory[0];
 
     let (noun, verb) = find_noun_verb(&mut computer, &mut program, 19_690_720);
