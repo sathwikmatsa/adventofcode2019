@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::convert::From;
 
 enum Opcode {
@@ -9,6 +10,7 @@ enum Opcode {
     JumpIfFalse,
     LessThan,
     Equals,
+    RelativeBaseOffset,
     Halt,
     Invalid,
 }
@@ -24,6 +26,7 @@ impl Opcode {
             Self::JumpIfFalse => 2,
             Self::LessThan => 3,
             Self::Equals => 3,
+            Self::RelativeBaseOffset => 1,
             Self::Halt => 0,
             Self::Invalid => 0,
         }
@@ -41,6 +44,7 @@ impl From<i64> for Opcode {
             6 => Self::JumpIfFalse,
             7 => Self::LessThan,
             8 => Self::Equals,
+            9 => Self::RelativeBaseOffset,
             99 => Self::Halt,
             _ => Self::Invalid,
         }
@@ -50,6 +54,7 @@ impl From<i64> for Opcode {
 enum Mode {
     Positional,
     Immediate,
+    Relative,
     Invalid,
 }
 
@@ -58,6 +63,7 @@ impl From<usize> for Mode {
         match item {
             0 => Self::Positional,
             1 => Self::Immediate,
+            2 => Self::Relative,
             _ => Self::Invalid,
         }
     }
@@ -65,7 +71,9 @@ impl From<usize> for Mode {
 
 pub struct IntcodeComputer {
     ip: usize,
-    pub memory: Vec<i64>,
+    rel_base: i64,
+    program_len: usize,
+    pub memory: HashMap<usize, i64>,
     pub waiting_for_input: bool,
     pub done: bool,
 }
@@ -74,7 +82,9 @@ impl IntcodeComputer {
     pub fn new() -> Self {
         Self {
             ip: 0,
-            memory: Vec::new(),
+            rel_base: 0,
+            program_len: 0,
+            memory: HashMap::new(),
             waiting_for_input: false,
             done: true,
         }
@@ -90,39 +100,78 @@ impl IntcodeComputer {
             .collect();
         (opcode, param_modes)
     }
-    fn fetch(&self, index: usize, mode: &Mode) -> i64 {
+    fn fetch(&mut self, index: usize, mode: &Mode) -> i64 {
         match mode {
-            Mode::Positional => self.memory[self.memory[index] as usize],
-            Mode::Immediate => self.memory[index],
+            Mode::Positional => {
+                self.memory.entry(self.memory[&index] as usize).or_insert(0);
+                self.memory[&(self.memory[&index] as usize)]
+            }
+            Mode::Immediate => self.memory[&index],
+            Mode::Relative => {
+                self.memory
+                    .entry((self.rel_base + self.memory[&index]) as usize)
+                    .or_insert(0);
+                self.memory[&((self.rel_base + self.memory[&index]) as usize)]
+            }
             _ => panic!("Invalid param mode"),
+        }
+    }
+    fn store(&mut self, index: usize, mode: &Mode, value: i64) {
+        match mode {
+            Mode::Positional => {
+                self.memory.insert(self.memory[&index] as usize, value);
+            }
+            Mode::Relative => {
+                self.memory
+                    .insert((self.memory[&index] + self.rel_base) as usize, value);
+            }
+            _ => panic!("Invalid mode in store"),
         }
     }
     pub fn load_program(&mut self, program: &[i64]) {
         self.memory.clear();
-        self.memory.extend_from_slice(program);
+        program.iter().enumerate().for_each(|(i, x)| {
+            self.memory.insert(i, *x);
+        });
         self.ip = 0;
+        self.program_len = program.len();
         self.done = false;
+        self.rel_base = 0;
         self.waiting_for_input = false;
+    }
+    pub fn program_memory(&self) -> Vec<i64> {
+        let mut pmem = Vec::new();
+        for i in 0..self.program_len {
+            pmem.push(self.memory[&i]);
+        }
+        pmem
     }
     pub fn execute(&mut self, stdin: &[i64]) -> Vec<i64> {
         self.waiting_for_input = self.waiting_for_input && stdin.len() == 0;
         let mut stdout = Vec::new();
         let mut input_index = 0;
         loop {
-            let (opcode, pmodes) = Self::decode(self.memory[self.ip]);
+            let (opcode, pmodes) = Self::decode(self.memory[&self.ip]);
             match opcode {
                 Opcode::Add => {
                     let op1 = self.fetch(self.ip + 1, pmodes.get(0).unwrap_or(&Mode::Positional));
                     let op2 = self.fetch(self.ip + 2, pmodes.get(1).unwrap_or(&Mode::Positional));
-                    let op3 = self.memory[self.ip + 3];
-                    self.memory[op3 as usize] = op1 + op2;
+
+                    self.store(
+                        self.ip + 3,
+                        pmodes.get(2).unwrap_or(&Mode::Positional),
+                        op1 + op2,
+                    );
                     self.ip += Opcode::Add.param_len() + 1;
                 }
                 Opcode::Mul => {
                     let op1 = self.fetch(self.ip + 1, pmodes.get(0).unwrap_or(&Mode::Positional));
                     let op2 = self.fetch(self.ip + 2, pmodes.get(1).unwrap_or(&Mode::Positional));
-                    let op3 = self.memory[self.ip + 3];
-                    self.memory[op3 as usize] = op1 * op2;
+                    self.store(
+                        self.ip + 3,
+                        pmodes.get(2).unwrap_or(&Mode::Positional),
+                        op1 * op2,
+                    );
                     self.ip += Opcode::Mul.param_len() + 1;
                 }
                 Opcode::Input => {
@@ -132,8 +181,11 @@ impl IntcodeComputer {
                     }
                     let input: i64 = stdin[input_index];
                     input_index += 1;
-                    let op1 = self.memory[self.ip + 1];
-                    self.memory[op1 as usize] = input;
+                    self.store(
+                        self.ip + 1,
+                        pmodes.get(0).unwrap_or(&Mode::Positional),
+                        input,
+                    );
                     self.ip += Opcode::Input.param_len() + 1;
                 }
                 Opcode::Output => {
@@ -162,16 +214,27 @@ impl IntcodeComputer {
                 Opcode::LessThan => {
                     let op1 = self.fetch(self.ip + 1, pmodes.get(0).unwrap_or(&Mode::Positional));
                     let op2 = self.fetch(self.ip + 2, pmodes.get(1).unwrap_or(&Mode::Positional));
-                    let op3 = self.memory[self.ip + 3];
-                    self.memory[op3 as usize] = if op1 < op2 { 1 } else { 0 };
+                    self.store(
+                        self.ip + 3,
+                        pmodes.get(2).unwrap_or(&Mode::Positional),
+                        if op1 < op2 { 1 } else { 0 },
+                    );
                     self.ip += Opcode::LessThan.param_len() + 1;
                 }
                 Opcode::Equals => {
                     let op1 = self.fetch(self.ip + 1, pmodes.get(0).unwrap_or(&Mode::Positional));
                     let op2 = self.fetch(self.ip + 2, pmodes.get(1).unwrap_or(&Mode::Positional));
-                    let op3 = self.memory[self.ip + 3];
-                    self.memory[op3 as usize] = if op1 == op2 { 1 } else { 0 };
+                    self.store(
+                        self.ip + 3,
+                        pmodes.get(2).unwrap_or(&Mode::Positional),
+                        if op1 == op2 { 1 } else { 0 },
+                    );
                     self.ip += Opcode::Equals.param_len() + 1;
+                }
+                Opcode::RelativeBaseOffset => {
+                    let op1 = self.fetch(self.ip + 1, pmodes.get(0).unwrap_or(&Mode::Positional));
+                    self.rel_base += op1;
+                    self.ip += Opcode::RelativeBaseOffset.param_len() + 1;
                 }
                 Opcode::Halt => {
                     self.done = true;
@@ -194,19 +257,19 @@ pub mod tests {
 
         computer.load_program(&[1, 0, 0, 0, 99]);
         computer.execute(&[]);
-        assert_eq!(computer.memory, vec![2, 0, 0, 0, 99]);
+        assert_eq!(computer.program_memory(), vec![2, 0, 0, 0, 99]);
 
         computer.load_program(&[2, 3, 0, 3, 99]);
         computer.execute(&[]);
-        assert_eq!(computer.memory, vec![2, 3, 0, 6, 99]);
+        assert_eq!(computer.program_memory(), vec![2, 3, 0, 6, 99]);
 
         computer.load_program(&[2, 4, 4, 5, 99, 0]);
         computer.execute(&[]);
-        assert_eq!(computer.memory, vec![2, 4, 4, 5, 99, 9801]);
+        assert_eq!(computer.program_memory(), vec![2, 4, 4, 5, 99, 9801]);
 
         computer.load_program(&[1, 1, 1, 4, 99, 5, 6, 0, 99]);
         computer.execute(&[]);
-        assert_eq!(computer.memory, vec![30, 1, 1, 4, 2, 5, 6, 0, 99]);
+        assert_eq!(computer.program_memory(), vec![30, 1, 1, 4, 2, 5, 6, 0, 99]);
     }
     #[test]
     fn test_io() {
@@ -222,7 +285,7 @@ pub mod tests {
 
         computer.load_program(&[1101, 100, -1, 4, 0]);
         computer.execute(&[]);
-        assert_eq!(computer.memory, vec![1101, 100, -1, 4, 99]);
+        assert_eq!(computer.program_memory(), vec![1101, 100, -1, 4, 99]);
     }
     #[test]
     fn test_equals_and_less_than() {
@@ -299,5 +362,38 @@ pub mod tests {
         computer.load_program(&program);
         let output = computer.execute(&[14]);
         assert_eq!(output, vec![1001]);
+    }
+    #[test]
+    fn extra_memory_large_digits() {
+        let mut computer = IntcodeComputer::new();
+
+        let program = [
+            109, 1, 204, -1, 1001, 100, 1, 100, 1008, 100, 16, 101, 1006, 101, 0, 99,
+        ];
+        computer.load_program(&program);
+        let output = computer.execute(&[]);
+        assert_eq!(output.as_slice(), program);
+
+        let program = [1102, 34915192, 34915192, 7, 4, 7, 99, 0];
+        computer.load_program(&program);
+        let output = computer.execute(&[]);
+        assert_eq!(output[0].to_string().len(), 16);
+
+        let program = [104, 1125899906842624, 99];
+        computer.load_program(&program);
+        let output = computer.execute(&[]);
+        assert_eq!(output[0], 1125899906842624);
+    }
+    #[test]
+    fn test_relative_mode() {
+        let mut computer = IntcodeComputer::new();
+        computer.rel_base = 2000;
+
+        let program = [109, 19, 204, -34, 99];
+        computer.load_program(&program);
+        computer.memory.insert(1985, 123456789);
+        let output = computer.execute(&[]);
+        assert_eq!(computer.rel_base, 2019);
+        assert_eq!(output[0], 123456789);
     }
 }
