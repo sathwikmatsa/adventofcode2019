@@ -69,6 +69,7 @@ impl From<usize> for Mode {
     }
 }
 
+#[derive(Default)]
 pub struct IntcodeComputer {
     ip: usize,
     rel_base: i64,
@@ -147,7 +148,7 @@ impl IntcodeComputer {
         pmem
     }
     pub fn execute(&mut self, stdin: &[i64]) -> Vec<i64> {
-        self.waiting_for_input = self.waiting_for_input && stdin.len() == 0;
+        self.waiting_for_input = self.waiting_for_input && stdin.is_empty();
         let mut stdout = Vec::new();
         let mut input_index = 0;
         loop {

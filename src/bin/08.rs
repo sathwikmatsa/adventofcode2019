@@ -78,7 +78,7 @@ impl Image {
                     _ => print!("  "),
                 }
             }
-            println!("");
+            println!();
         }
     }
 }
