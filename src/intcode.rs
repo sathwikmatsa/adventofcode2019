@@ -234,6 +234,7 @@ impl IntcodeComputer {
                 }
                 Opcode::RelativeBaseOffset => {
                     let op1 = self.fetch(self.ip + 1, pmodes.get(0).unwrap_or(&Mode::Positional));
+                    println!("op1 : {}", op1);
                     self.rel_base += op1;
                     self.ip += Opcode::RelativeBaseOffset.param_len() + 1;
                 }
@@ -388,13 +389,11 @@ pub mod tests {
     #[test]
     fn test_relative_mode() {
         let mut computer = IntcodeComputer::new();
-        computer.rel_base = 2000;
-
-        let program = [109, 19, 204, -34, 99];
+        let program = [109, 19, 204, -4, 99];
         computer.load_program(&program);
-        computer.memory.insert(1985, 123456789);
+        computer.memory.insert(15, 123456789);
         let output = computer.execute(&[]);
-        assert_eq!(computer.rel_base, 2019);
+        assert_eq!(computer.rel_base, 19);
         assert_eq!(output[0], 123456789);
     }
 }
